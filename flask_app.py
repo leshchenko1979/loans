@@ -4,6 +4,7 @@ from reretry import retry
 import pandas as pd
 import dotenv
 import os
+import json
 
 dotenv.load_dotenv()
 
@@ -26,32 +27,54 @@ def get_ss(ss_key: str, name: str = None):
     return gc.open_by_key(ss_key)
 
 
-@app.post('/')
+@app.post("/")
 def main():
     # get worksheets
 
     ss = get_ss(os.environ["SPREADSHEET_ID"])
     investor_apps = ss.worksheet("Заявки инвесторов")
-    totals = ss.worksheet("Итоги по заявкам")
 
     # load data
 
     data = pd.DataFrame(investor_apps.get_all_records())
 
+    data = process_data(data, request.json)
+
+    # put the table back into Google Sheets
+
+    investor_apps.update([data.columns.values.tolist()] + data.values.tolist())
+
+    return "Done"
+
+def process_data(data: pd.DataFrame, new_data: dict):
     # add new data
 
-    new_data = request.json
     data = pd.concat(
-        [
-            data,
-            pd.DataFrame([{col: new_data[MAPPING[col]] for col in MAPPING}])
-        ]
+        [data, pd.DataFrame([{col: new_data[MAPPING[col]] for col in MAPPING}])]
     )
 
     # dedup the data
 
     data = data.drop_duplicates("CUserID", keep="last")
 
+    data = update_rankings(data)
+
+    # ensure field order
+    FIELD_ORDER = ["CUserID", "Имя", "Ставка", "Сумма", "Ранг"]
+    data = data[FIELD_ORDER]
+
+    # turn back into strings
+
+    data["Ставка"] = [
+        f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]
+    ]
+    data["Сумма"] = [
+        f"{int(sum)} млн." if pd.notna(sum) else 0 for sum in data["Сумма"]
+    ]
+
+    return data
+
+def update_rankings(data):
     # update rankings in the table
 
     # turn numeric columns into numericals
@@ -65,45 +88,10 @@ def main():
 
     # sort and calculate the ranking
 
-    data = data.sort_values(
-        ["nans", "Ставка", "Сумма"], ascending=[True, True, False]
-    )
+    data = data.sort_values(["nans", "Ставка", "Сумма"], ascending=[True, True, False])
 
     data = data.reset_index(drop=True)
 
-    data["Ранг"] = [
-        (i + 1 if not n else "") for i, n in zip(data.index, data.nans)
-    ]
+    data["Ранг"] = [(i + 1 if not n else "") for i, n in zip(data.index, data.nans)]
 
-    # ensure field order
-    FIELD_ORDER = ["CUserID", "Имя","Ставка","Сумма","Ранг"]
-    data = data[FIELD_ORDER]
-
-
-    # calc the totals
-
-    # total_apps = len(data)
-    # top5 = data.head(5)
-    # mean_top_5_rate = int(top5["Ставка"].mean())
-    # mean_top_5_sum = int(top5["Сумма"].mean())
-
-    # turn back into strings
-
-    data["Ставка"] = [
-        f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]
-    ]
-    data["Сумма"] = [
-        f"{int(sum)} млн." if pd.notna(sum) else 0 for sum in data["Сумма"]
-    ]
-
-    # put the table back into Google Sheets
-
-    # main data
-    # investor_apps.clear()
-    investor_apps.update([data.columns.values.tolist()] + data.values.tolist())
-
-    # totals
-
-    # totals.update("B1:B3", [[total_apps], [mean_top_5_rate], [mean_top_5_sum]])
-
-    return 'Done'
+    return data

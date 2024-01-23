@@ -1,3 +1,5 @@
+print("Starting imports")
+
 from flask import Flask, request
 import gspread
 from reretry import retry
@@ -18,18 +20,11 @@ MAPPING = {
 }
 
 
-@retry(tries=3, delay=3)
-def get_ss(ss_key: str):
-    service_string = os.environ["GOOGLE_SERVICE_ACCOUNT"]
-    service_dict = json.loads(service_string)
-    gc = gspread.service_account_from_dict(service_dict)
-
-    return gc.open_by_key(ss_key)
-
-
 @app.post("/")
 def main():
     # get worksheets
+
+    print("Start loading data")
 
     ss = get_ss(os.environ["SPREADSHEET_ID"])
     investor_apps = ss.worksheet("Заявки инвесторов")
@@ -38,13 +33,30 @@ def main():
 
     data = pd.DataFrame(investor_apps.get_all_records())
 
+    print(len(data), "lines downloaded from Google")
+
+    print("Request:", request.json)
+
+    # process data
+
     data = process_data(data, request.json)
 
     # put the table back into Google Sheets
 
     investor_apps.update([data.columns.values.tolist()] + data.values.tolist())
 
+    print(len(data), "lines uploaded to Google")
+
     return "Done"
+
+
+@retry(tries=3, delay=3)
+def get_ss(ss_key: str):
+    service_string = os.environ["GOOGLE_SERVICE_ACCOUNT"]
+    service_dict = json.loads(service_string)
+    gc = gspread.service_account_from_dict(service_dict)
+
+    return gc.open_by_key(ss_key)
 
 
 def process_data(data: pd.DataFrame, new_data: dict):

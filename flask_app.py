@@ -19,7 +19,7 @@ MAPPING = {
 
 
 @retry(tries=3, delay=3)
-def get_ss(ss_key: str, name: str = None):
+def get_ss(ss_key: str):
     service_string = os.environ["GOOGLE_SERVICE_ACCOUNT"]
     service_dict = json.loads(service_string)
     gc = gspread.service_account_from_dict(service_dict)
@@ -46,8 +46,11 @@ def main():
 
     return "Done"
 
+
 def process_data(data: pd.DataFrame, new_data: dict):
     # add new data
+
+    data, comments = split_comments(data)
 
     data = pd.concat(
         [data, pd.DataFrame([{col: new_data[MAPPING[col]] for col in MAPPING}])]
@@ -72,7 +75,29 @@ def process_data(data: pd.DataFrame, new_data: dict):
         f"{int(sum)} млн." if pd.notna(sum) else 0 for sum in data["Сумма"]
     ]
 
+    if comments is not None:
+        data = restore_comments(data, comments)
+
     return data
+
+
+def split_comments(data: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+    """Split all columns starting with "Комментарии" into a separate dataframe."""
+
+    if "Комментарии" not in data:
+        return data, None
+
+    ncol = data.columns.get_loc("Комментарии")
+    return data.iloc[:, :ncol], pd.concat(
+        [data["CUserID"], data.iloc[:, ncol:]], axis="columns"
+    )
+
+
+def restore_comments(data: pd.DataFrame, comments: pd.DataFrame) -> pd.DataFrame:
+    """Merge comments into the new data based on the CUserID field as index."""
+
+    return pd.merge(data, comments, how="left", on="CUserID")
+
 
 def update_rankings(data):
     # update rankings in the table
@@ -92,6 +117,6 @@ def update_rankings(data):
 
     data = data.reset_index(drop=True)
 
-    data["Ранг"] = [(i + 1 if not n else "") for i, n in zip(data.index, data.nans)]
+    data["Ранг"] = [("" if nan else i + 1) for i, nan in zip(data.index, data.nans)]
 
     return data

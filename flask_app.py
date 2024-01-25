@@ -53,6 +53,8 @@ def main():
 
 @retry(tries=3, delay=3)
 def get_ss(ss_key: str):
+    """Get a spreadsheets from Google by a spreadsheet key."""
+
     service_string = os.environ["GOOGLE_SERVICE_ACCOUNT"]
     service_dict = json.loads(service_string)
     gc = gspread.service_account_from_dict(service_dict)
@@ -61,6 +63,10 @@ def get_ss(ss_key: str):
 
 
 def process_data(data: pd.DataFrame, new_data: dict):
+    """Process the data by adding new data, deduplicating, updating rankings, ensuring field order,
+    restoring comments, and ensuring Google Sheets safety.
+    """
+
     data, comments = split_comments(data)
 
     # ensure all needed columns exist
@@ -113,7 +119,7 @@ def restore_comments(data: pd.DataFrame, comments: pd.DataFrame) -> pd.DataFrame
 
 
 def update_rankings(data):
-    # update rankings in the table
+    """Update rankings"""
 
     # turn numeric columns into numericals
 
@@ -136,6 +142,11 @@ def update_rankings(data):
 
 
 def ensure_gsheets_safety(data):
+    """Make data safe for placing into Google Sheets.
+
+    If gspread gets nans in input, it raises a JSONEncode exception.
+    """
+
     data["Ставка"] = [
         f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]
     ]

@@ -14,9 +14,10 @@ app = Flask(__name__)
 
 MAPPING = {
     "CUserID": "cuid",
+    "Имя": "name",
     "Ставка": "Фонд_ставка_текст",
     "Сумма": "Фонд_сумма_текст",
-    "Имя": "name",
+    "Телефон": "phone",
 }
 
 
@@ -60,9 +61,14 @@ def get_ss(ss_key: str):
 
 
 def process_data(data: pd.DataFrame, new_data: dict):
-    # add new data
-
     data, comments = split_comments(data)
+
+    # ensure all needed columns exist
+    for col in MAPPING.keys():
+        if col not in data:
+            data[col] = ""
+
+    # add new data
 
     data = pd.concat(
         [data, pd.DataFrame([{col: new_data[MAPPING[col]] for col in MAPPING}])]
@@ -75,20 +81,15 @@ def process_data(data: pd.DataFrame, new_data: dict):
     data = update_rankings(data)
 
     # ensure field order
-    FIELD_ORDER = ["CUserID", "Имя", "Ставка", "Сумма", "Ранг"]
+    FIELD_ORDER = list(MAPPING.keys()) + ["Ранг"]
     data = data[FIELD_ORDER]
 
     # turn back into strings
 
-    data["Ставка"] = [
-        f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]
-    ]
-    data["Сумма"] = [
-        f"{int(sum)} млн." if pd.notna(sum) else 0 for sum in data["Сумма"]
-    ]
-
     if comments is not None:
         data = restore_comments(data, comments)
+
+    data = ensure_gsheets_safety(data)
 
     return data
 
@@ -117,7 +118,7 @@ def update_rankings(data):
     # turn numeric columns into numericals
 
     for col in ["Ставка", "Сумма"]:
-        data[col] = data[col].str.extract("(\d+)").astype(float)
+        data[col] = data[col].str.extract(r"(\d+)").astype(float)
 
     # pick out indexes of NaNs
 
@@ -130,5 +131,17 @@ def update_rankings(data):
     data = data.reset_index(drop=True)
 
     data["Ранг"] = [("" if nan else i + 1) for i, nan in zip(data.index, data.nans)]
+
+    return data
+def ensure_gsheets_safety(data):
+    data["Ставка"] = [
+        f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]
+    ]
+    data["Сумма"] = [
+        f"{int(sum)} млн." if pd.notna(sum) else 0 for sum in data["Сумма"]
+    ]
+
+    # replace all nans with empty strings
+    data = data.fillna("")
 
     return data

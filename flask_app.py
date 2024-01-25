@@ -133,6 +133,8 @@ def update_rankings(data):
     data["Ранг"] = [("" if nan else i + 1) for i, nan in zip(data.index, data.nans)]
 
     return data
+
+
 def ensure_gsheets_safety(data):
     data["Ставка"] = [
         f"{int(rate)}%" if pd.notna(rate) else 0 for rate in data["Ставка"]

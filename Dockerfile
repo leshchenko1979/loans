@@ -2,7 +2,7 @@ FROM python:slim
 
 LABEL Name=loans Version=0.0.1
 
-RUN pip install -U --no-cache wheel setuptools pip
+# RUN pip install -U --no-cache wheel setuptools pip
 
 ADD /requirements.txt /
 

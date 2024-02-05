@@ -1,4 +1,4 @@
-FROM python:slim
+FROM python:alpine
 
 LABEL Name=loans Version=0.0.1
 

@@ -38,7 +38,7 @@ from flask_app import Application, data_to_lines, dict_to_app_list, process_data
             {
                 "cuid": ["1", "2"],
                 "name": ["Alice", "Bob"],
-                "rate": ["10%", "20%"],
+                "rate": ["10%", "30%"],
                 "amount": ["100 млн.", "200 млн."],
                 "phone": ["000000000000", "000000000000"],
                 "rank": ["1", "2"],
@@ -47,18 +47,18 @@ from flask_app import Application, data_to_lines, dict_to_app_list, process_data
             {
                 "cuid": "3",
                 "name": "Charlie",
-                "Фонд_ставка_текст": "30%",
+                "Фонд_ставка_текст": "20%",
                 "Фонд_сумма_текст": "300 млн.",
                 "phone": "000000000000",
             },
             {
-                "cuid": ["1", "2", "3"],
-                "name": ["Alice", "Bob", "Charlie"],
+                "cuid": ["1", "3", "2"],
+                "name": ["Alice", "Charlie", "Bob"],
                 "rate": ["10%", "20%", "30%"],
-                "amount": ["100 млн.", "200 млн.", "300 млн."],
+                "amount": ["100 млн.", "300 млн.", "200 млн."],
                 "phone": ["000000000000", "000000000000", "000000000000"],
                 "rank": [1, 2, 3],
-                "Комментарии": ["Это Алиса", "Это Боб", ""],
+                "Комментарии": ["Это Алиса", "", "Это Боб"],
             },
             id="happy_path_keep_comments",
         ),
@@ -194,3 +194,62 @@ def test_app_list_to_list_of_lines(data: list[Application], expected: list[list[
     result = data_to_lines(data)
 
     assert result == expected
+
+
+from flask_app import stretch_to_max_len
+
+
+# Happy path tests with various realistic test values
+@pytest.mark.parametrize(
+    "input_data, expected_output",
+    [
+        pytest.param(
+            [[1, 2], [3, 4, 5], [6]],
+            [[1, 2, ""], [3, 4, 5], [6, "", ""]],
+            id="happy_path_uneven_lists",
+        ),
+        pytest.param(
+            [[], [1], [1, 2]],
+            [["", ""], [1, ""], [1, 2]],
+            id="happy_path_empty_first_list",
+        ),
+        pytest.param(
+            [[1], [1], [1]], [[1], [1], [1]], id="happy_path_equal_length_lists"
+        ),
+        pytest.param(([1], (2, 3)), [[1, ""], [2, 3]], id="edge_case_lists_and_tuples"),
+        pytest.param([[1, 2, 3]], [[1, 2, 3]], id="edge_case_single_inner_list"),
+        pytest.param(
+            [[None, None], [None]],
+            [[None, None], [None, ""]],
+            id="edge_case_none_values",
+        ),
+    ],
+)
+def test_stretch_to_max_len(input_data, expected_output):
+    assert stretch_to_max_len(input_data) == expected_output
+
+
+# Edge cases
+@pytest.mark.parametrize(
+    "input_data, expected_output, test_id",
+    [],
+)
+def test_stretch_to_max_len_edge_cases(input_data, expected_output, test_id):
+    # Act
+    result = stretch_to_max_len(input_data)
+
+    # Assert
+    assert result == expected_output, f"Failed {test_id}"
+
+
+# Error cases
+@pytest.mark.parametrize(
+    "input_data, exception",
+    [
+        pytest.param([1, 2, 3], TypeError, id="error_case_flat_list"),
+    ],
+)
+def test_stretch_to_max_len_error_cases(input_data, exception):
+    # Act / Assert
+    with pytest.raises(exception):
+        stretch_to_max_len(input_data)

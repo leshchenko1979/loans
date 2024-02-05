@@ -59,7 +59,8 @@ def main():
 
     data = process_data(data, request.json)
 
-    investor_apps.update([first_line] + data_to_lines(data))
+    lines = stretch_to_max_len([first_line] + data_to_lines(data))
+    investor_apps.update(lines)
 
     print(len(data), "lines uploaded to Google")
 
@@ -150,6 +151,11 @@ def ensure_gsheets_safety(data):
         data[i] = data[i]._replace(rate=f"{app.rate}%", amount=f"{app.amount} млн.")
 
     return data
+
+
+def stretch_to_max_len(lines: list[list]):
+    max_len = len(max(lines, key=len))
+    return [[*line, *([""] * (max_len - len(line)))] for line in lines]
 
 
 def data_to_lines(data: list[Application]):

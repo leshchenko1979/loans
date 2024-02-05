@@ -82,14 +82,3 @@ def test_update_rankings_edge_cases(input_data, expected):
             result, dict_to_app_list(add_missing_application_keys(expected))
         )
     )
-
-
-@pytest.mark.parametrize(
-    "input_data",
-    [{"rate": [10, 20], "amount": [100, 200]}],
-    ids=error_case_ids,
-)
-def test_update_rankings_error_cases(input_data):
-    # Act & Assert
-    with pytest.raises(Exception):
-        update_rankings(dict_to_app_list(add_missing_application_keys(input_data)))

@@ -46,23 +46,25 @@ def dict_to_list_of_lines(data_dict: dict) -> list[list[str]]:
 
 @app.post("/")
 def main():
-    print("Start loading data")
+    from yandex_logging import logger
 
-    ss = get_ss(os.environ["SPREADSHEET_ID"])
-    investor_apps: gspread.Worksheet = ss.worksheet("Заявки инвесторов")
+    logger.debug("Start loading data")
+
+    ss: gspread.Spreadsheet = get_ss(os.environ["SPREADSHEET_ID"])
+    investor_apps = ss.worksheet("Заявки инвесторов")
 
     first_line, data = load_data(investor_apps)
 
-    print(len(data), "lines downloaded from Google")
+    logger.debug(f"{len(data)} lines downloaded from Google")
 
-    print("Request:", request.json)
+    logger.info("Request: {request.json}")
 
     data = process_data(data, request.json)
 
     lines = stretch_to_max_len([first_line] + data_to_lines(data))
     investor_apps.update(lines)
 
-    print(len(data), "lines uploaded to Google")
+    logger.debug(f"{len(data)} lines uploaded to Google")
 
     return "Done"
 

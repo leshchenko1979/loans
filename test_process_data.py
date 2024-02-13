@@ -229,19 +229,6 @@ def test_stretch_to_max_len(input_data, expected_output):
     assert stretch_to_max_len(input_data) == expected_output
 
 
-# Edge cases
-@pytest.mark.parametrize(
-    "input_data, expected_output, test_id",
-    [],
-)
-def test_stretch_to_max_len_edge_cases(input_data, expected_output, test_id):
-    # Act
-    result = stretch_to_max_len(input_data)
-
-    # Assert
-    assert result == expected_output, f"Failed {test_id}"
-
-
 # Error cases
 @pytest.mark.parametrize(
     "input_data, exception",

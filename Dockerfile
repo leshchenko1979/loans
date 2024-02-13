@@ -8,6 +8,7 @@ ADD /requirements.txt /
 
 RUN pip install -r requirements.txt --no-cache
 
+ADD /yandex_logging.py /
 ADD /.env /
 ADD /flask_app.py /
 

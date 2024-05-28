@@ -1,6 +1,7 @@
 print("Starting imports")
 
 import json
+import logging
 import os
 from collections import namedtuple
 
@@ -8,6 +9,8 @@ import dotenv
 import gspread
 from flask import Flask, request
 from reretry import retry
+
+import yandex_logging
 
 dotenv.load_dotenv()
 
@@ -46,25 +49,23 @@ def dict_to_list_of_lines(data_dict: dict) -> list[list[str]]:
 
 @app.post("/")
 def main():
-    from yandex_logging import logger
-
-    logger.debug("Start loading data")
+    logging.debug("Start loading data")
 
     ss: gspread.Spreadsheet = get_ss(os.environ["SPREADSHEET_ID"])
     investor_apps = ss.worksheet("Заявки инвесторов")
 
     first_line, data = load_data(investor_apps)
 
-    logger.debug(f"{len(data)} lines downloaded from Google")
+    logging.debug(f"{len(data)} lines downloaded from Google")
 
-    logger.info("Request: {request.json}")
+    logging.info("Request: {request.json}")
 
     data = process_data(data, request.json)
 
     lines = stretch_to_max_len([first_line] + data_to_lines(data))
     investor_apps.update(lines)
 
-    logger.debug(f"{len(data)} lines uploaded to Google")
+    logging.debug(f"{len(data)} lines uploaded to Google")
 
     return "Done"
 

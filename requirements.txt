@@ -2,3 +2,4 @@ flask
 gspread
 reretry
 python-dotenv
+python-json-logger

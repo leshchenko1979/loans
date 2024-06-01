@@ -1,9 +1,10 @@
 print("Starting imports")
 
+import datetime
 import json
 import logging
 import os
-from collections import namedtuple
+from dataclasses import dataclass, field, fields, asdict
 
 import dotenv
 import gspread
@@ -17,33 +18,57 @@ dotenv.load_dotenv()
 app = Flask(__name__)
 
 NEW_APP_FIELD_MAPPING = {
-    "cuid": "cuid",
-    "name": "name",
     "rate": "Фонд_ставка_текст",
     "amount": "Фонд_сумма_текст",
-    "phone": "phone",
 }
 
 
-Application = namedtuple(
-    "Application", "cuid, name, rate, amount, phone, rank, other_fields"
-)
+@dataclass
+class Application:
+    cuid: str
+    name: str
+    rate: str
+    amount: str
+    phone: str
+    telegram: str = ""
+    created_at: str = ""
+    rank: int = 0
+    other_fields: list = field(default_factory=list)
+
+    @staticmethod
+    def from_json(json_data: dict, **kwargs):
+        data_dict = {
+            key: value for key, value in json_data.items() if key in FIELD_NAMES
+        }
+        data_dict |= {
+            key: json_data[value] for key, value in NEW_APP_FIELD_MAPPING.items()
+        }
+        self = Application(**data_dict)
+
+        self.created_at = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        self.telegram = "https://t.me/" + json_data["messenger_username"]
+
+        # Overwite from kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        return self
+
+    @staticmethod
+    def from_line(line: list[str]):
+        return Application(*line[:MAIN_FIELDS], other_fields=line[MAIN_FIELDS:])
 
 
-MAIN_FIELDS = len(Application._fields) - 1
-
-
-def line_to_app(fields: list[str]) -> Application:
-    return Application(*fields[:MAIN_FIELDS], other_fields=fields[MAIN_FIELDS:])
-
+MAIN_FIELDS = len(fields(Application)) - 1
+FIELD_NAMES = [field.name for field in fields(Application)]
 
 def dict_to_app_list(app_dict: dict) -> list[Application]:
-    return [line_to_app(line) for line in dict_to_list_of_lines(app_dict)]
+    return [Application.from_line(line) for line in dict_to_list_of_lines(app_dict)]
 
 
 def dict_to_list_of_lines(data_dict: dict) -> list[list[str]]:
-    other_fields = set(data_dict.keys()) - set(Application._fields)
-    ordered_col_list = [*Application._fields[:MAIN_FIELDS], *other_fields]
+    other_fields = set(data_dict.keys()) - set(FIELD_NAMES)
+    ordered_col_list = [*FIELD_NAMES[:MAIN_FIELDS], *other_fields]
     return list(zip(*[data_dict[key] for key in ordered_col_list]))
 
 
@@ -73,7 +98,7 @@ def main():
 def load_data(investor_apps: gspread.Worksheet):
     all_lines = investor_apps.get_all_values()
     first_line = all_lines[0]
-    data = [line_to_app(line) for line in all_lines[1:]]
+    data = [Application.from_line(line) for line in all_lines[1:]]
 
     return first_line, data
 
@@ -106,7 +131,7 @@ def add_new_data(data, new_data):
     mapped = {
         col: new_data[NEW_APP_FIELD_MAPPING[col]] for col in NEW_APP_FIELD_MAPPING
     }
-    return data + [Application(**mapped, rank="", other_fields=[])]
+    return data + [Application.from_json(new_data)]
 
 
 def dedup(data):
@@ -123,35 +148,34 @@ def update_rankings(data: list[Application]):
     data.sort(key=lambda app: app.rate)
 
     for i, app in enumerate(data):
-        data[i] = data[i]._replace(rank=i + 1)
+        app.rank = i + 1
 
     return data
 
 
 def rate_and_amount_to_numbers(data: list[Application]):
-    for i, app in enumerate(data):
+    for app in data:
         # turn numeric columns into numericals
         try:
-            rate = int(app.rate.replace("%", ""))
+            app.rate = int(app.rate.replace("%", ""))
         except ValueError:
-            rate = 0
+            app.rate = 0
 
         try:
-            amount = int(app.amount.replace(" млн.", ""))
+            app.amount = int(app.amount.replace(" млн.", ""))
         except ValueError:
-            amount = 0
-
-        data[i] = data[i]._replace(rate=rate, amount=amount)
+            app.amount = 0
 
 
-def ensure_gsheets_safety(data):
+def ensure_gsheets_safety(data: list[Application]):
     """Make data safe for placing into Google Sheets.
 
     If gspread gets nans in input, it raises a JSONEncode exception.
     """
 
-    for i, app in enumerate(data):
-        data[i] = data[i]._replace(rate=f"{app.rate}%", amount=f"{app.amount} млн.")
+    for app in data:
+        app.rate = f"{app.rate}%"
+        app.amount = f"{app.amount} млн."
 
     return data
 
@@ -162,7 +186,7 @@ def stretch_to_max_len(lines: list[list]):
 
 
 def data_to_lines(data: list[Application]):
-    return [(*list(app._asdict().values())[:-1], *app.other_fields) for app in data]
+    return [(*list(asdict(app).values())[:-1], *app.other_fields) for app in data]
 
 
 if __name__ == "__main__":

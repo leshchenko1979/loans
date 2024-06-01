@@ -1,6 +1,7 @@
+from dataclasses import fields
 import pytest
 
-from flask_app import Application, dict_to_app_list, update_rankings
+from flask_app import FIELD_NAMES, Application, dict_to_app_list, update_rankings
 
 # Test IDs for parametrization
 happy_path_ids = [
@@ -51,7 +52,7 @@ def test_update_rankings_happy_path(input_data, expected):
 
 
 def add_missing_application_keys(input_data):
-    for key in Application._fields:
+    for key in FIELD_NAMES:
         if key not in input_data:
             input_data[key] = []
     return input_data

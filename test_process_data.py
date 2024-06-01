@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from flask_app import Application, data_to_lines, dict_to_app_list, process_data
@@ -14,6 +16,8 @@ from flask_app import Application, data_to_lines, dict_to_app_list, process_data
                 "rate": ["10%", "20%"],
                 "amount": ["100 млн.", "200 млн."],
                 "phone": ["000000000000", "000000000000"],
+                "telegram": ["abc", "def"],
+                "created_at": ["some date", "some other date"],
                 "rank": ["1", "2"],
             },
             {
@@ -22,6 +26,7 @@ from flask_app import Application, data_to_lines, dict_to_app_list, process_data
                 "Фонд_ставка_текст": "30%",
                 "Фонд_сумма_текст": "300 млн.",
                 "phone": "81231231212",
+                "messenger_username": "leshchenko1979",
             },
             {
                 "cuid": ["1", "2", "3"],
@@ -29,6 +34,8 @@ from flask_app import Application, data_to_lines, dict_to_app_list, process_data
                 "rate": ["10%", "20%", "30%"],
                 "amount": ["100 млн.", "200 млн.", "300 млн."],
                 "phone": ["000000000000", "000000000000", "81231231212"],
+                "telegram": ["abc", "def", "https://t.me/leshchenko1979"],
+                "created_at": ["some date", "some other date", datetime.datetime.now()],
                 "rank": [1, 2, 3],
             },
             id="happy_path",
@@ -119,10 +126,7 @@ def test_process_data(existing_data, new_data, expected):
     print(result)
 
     # Assert
-    assert [
-        result[i]._asdict() == dict_to_app_list(expected)[i]._asdict()
-        for i in range(len(result))
-    ]
+    assert [result[i] == dict_to_app_list(expected)[i] for i in range(len(result))]
 
 
 @pytest.mark.parametrize(
@@ -135,6 +139,8 @@ def test_process_data(existing_data, new_data, expected):
                 "rate": ["10%", "20%"],
                 "amount": ["100 млн.", "200 млн."],
                 "phone": ["000000000000", "000000000000"],
+                "telegram": ["abc", "def"],
+                "created_at": ["some date", "some other date"],
                 "rank": ["1", "2"],
                 "other_field3": ["1", "2"],
                 "other_field2": ["3", "4"],
@@ -147,11 +153,21 @@ def test_process_data(existing_data, new_data, expected):
                     "10%",
                     "100 млн.",
                     "000000000000",
+                    "abc",
+                    "some date",
                     "1",
-                    ["1", "3", "5"],
+                    ("1", "3", "5"),
                 ),
                 Application(
-                    "2", "Bob", "20%", "200 млн.", "000000000000", "2", ["2", "4", "6"]
+                    "2",
+                    "Bob",
+                    "20%",
+                    "200 млн.",
+                    "000000000000",
+                    "def",
+                    "some other date",
+                    "2",
+                    ("2", "4", "6"),
                 ),
             ],
         ]
@@ -161,7 +177,10 @@ def test_process_data(existing_data, new_data, expected):
 def test_dict_to_app(app_dict: dict[str, list[str]], expected: list[Application]):
     result = dict_to_app_list(app_dict)
 
-    assert [result[i]._asdict() == expected[i]._asdict() for i in range(len(result))]
+    for result_row, expected_row in zip(result, expected):
+        if result_row != expected_row:
+            print(result_row, expected_row)
+            raise AssertionError
 
 
 @pytest.mark.parametrize(
@@ -175,16 +194,50 @@ def test_dict_to_app(app_dict: dict[str, list[str]], expected: list[Application]
                     "10%",
                     "100 млн.",
                     "000000000000",
+                    "abc",
+                    "some date",
                     "1",
                     ["1", "3", "5"],
                 ),
                 Application(
-                    "2", "Bob", "20%", "200 млн.", "000000000000", "2", ["2", "4", "6"]
+                    "2",
+                    "Bob",
+                    "20%",
+                    "200 млн.",
+                    "000000000000",
+                    "abc",
+                    "some date",
+                    "2",
+                    ["2", "4", "6"],
                 ),
             ],
             [
-                ("1", "Alice", "10%", "100 млн.", "000000000000", "1", "1", "3", "5"),
-                ("2", "Bob", "20%", "200 млн.", "000000000000", "2", "2", "4", "6"),
+                (
+                    "1",
+                    "Alice",
+                    "10%",
+                    "100 млн.",
+                    "000000000000",
+                    "abc",
+                    "some date",
+                    "1",
+                    "1",
+                    "3",
+                    "5",
+                ),
+                (
+                    "2",
+                    "Bob",
+                    "20%",
+                    "200 млн.",
+                    "000000000000",
+                    "abc",
+                    "some date",
+                    "2",
+                    "2",
+                    "4",
+                    "6",
+                ),
             ],
         ]
     ],
@@ -240,3 +293,62 @@ def test_stretch_to_max_len_error_cases(input_data, exception):
     # Act / Assert
     with pytest.raises(exception):
         stretch_to_max_len(input_data)
+
+
+@pytest.mark.parametrize(
+    "input_data, expected",
+    [
+        (
+            {
+                "CUserId_костыль": "6u3t.dj",
+                "bothelp_user_id": 487,
+                "conversations_count": 9,
+                "created_at": 1717259362,
+                "created_at_show": "1/06/2024 16:29:22 UTC",
+                "cuid": "6u3t.dj",
+                "email": "",
+                "first_contact_at": 1692106736,
+                "first_name": "Алексей",
+                "last_contact_at": 1717259361,
+                "last_name": "Лещенко | Деньги девелоперам",
+                "messenger_username": "leshchenko1979",
+                "name": "Лещенко | Инвестиции Алексей",
+                "phone": "3",
+                "profile_link": "",
+                "ref": "",
+                "user_id": "133526395",
+                "utm_campaign": "",
+                "utm_content": "",
+                "utm_medium": "",
+                "utm_source": "",
+                "utm_term": "",
+                "Комментарии": ".",
+                "Следующий контакт": "",
+                "Фонд_Ранг": "3",
+                "Фонд_ставка_текст": "20%",
+                "Фонд_сумма": 123,
+                "Фонд_сумма_текст": "2 млн.",
+            },
+            Application(
+                **{
+                    "cuid": "6u3t.dj",
+                    "name": "Лещенко | Инвестиции Алексей",
+                    "rate": "20%",
+                    "amount": "2 млн.",
+                    "phone": "3",
+                    "telegram": "https://t.me/leshchenko1979",
+                    "created_at": datetime.datetime(2022, 1, 1, 0, 0, 0),
+                    "rank": 0,
+                    "other_fields": [],
+                }
+            ),
+        )
+    ],
+)
+def test_create_applicaption_from_json(input_data, expected):
+    assert (
+        Application.from_json(
+            input_data, created_at=datetime.datetime(2022, 1, 1, 0, 0, 0)
+        )
+        == expected
+    )

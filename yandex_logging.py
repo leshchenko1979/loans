@@ -21,3 +21,4 @@ yandex_handler.setFormatter(YandexFormatter("[%(levelname)s] %(name)s: %(message
 
 root_logger = logging.getLogger()
 root_logger.addHandler(yandex_handler)
+root_logger.setLevel(logging.DEBUG)

@@ -58,7 +58,7 @@ def main():
 
     logging.debug(f"{len(data)} lines downloaded from Google")
 
-    logging.info("Request: {request.json}")
+    logging.info(f"Request: {request.json}", extra={"request": request.json})
 
     data = process_data(data, request.json)
 
